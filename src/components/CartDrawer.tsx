@@ -159,7 +159,7 @@ export const CartDrawer: React.FC = () => {
                   </h4>
                 </div>
                 <p className="text-[11px] text-[#5C4449] mb-3 leading-snug">
-                  Based on items in your bag, these products have the highest co-purchase frequency in our 200 transaction history:
+                  Based on items in your bag, these products have the highest co-purchase frequency in our 300 transaction history:
                 </p>
 
                 <div className="space-y-2">

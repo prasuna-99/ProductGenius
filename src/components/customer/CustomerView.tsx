@@ -2,28 +2,24 @@ import React, { useState, useMemo } from 'react';
 import {
   Sparkles,
   Search,
-  SlidersHorizontal,
   Heart,
   ShoppingBag,
   Star,
   Package,
-  Truck,
   CheckCircle,
-  Clock,
-  ArrowRight,
-  Gift,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Product } from '../../types';
 import { GeniusRecommendationsView } from './GeniusRecommendationsView';
+import { ReviewModal } from '../ReviewModal';
 import { CampaignShowcase } from './CampaignShowcase';
 import { formatPrice } from '../../utils/format';
+import { uniqueById } from '../../utils/unique';
 import { ImageWithFallback } from '../common/ImageWithFallback';
 
 export const CustomerView: React.FC = () => {
   const {
     products,
-    cart,
     addToCart,
     instantOrder,
     wishlist,
@@ -36,17 +32,20 @@ export const CustomerView: React.FC = () => {
     setSelectedProductDetail,
     activeCustomerTab,
     setActiveCustomerTab,
-    topRecommendations,
-    setActiveMathModalRule,
-    activeCampaigns,
+    reviews,
+    categories: globalCategories,
   } = useApp();
 
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [reviewProduct, setReviewProduct] = useState<Product | null>(null);
   const [sortBy, setSortBy] = useState<'featured' | 'price-asc' | 'price-desc' | 'rating'>('featured');
 
-  // Core 4 Categories
-  const categories = ['All', 'Skincare', 'Makeup', 'Bodycare', 'Fragrance'];
+  // Category tabs = global list (base 4 + admin-approved), hence dynamic
+  const categoryTabs = useMemo(
+    () => ['All', ...globalCategories.map(c => c.name)],
+    [globalCategories]
+  );
 
   // Filtered & sorted products
   const filteredProducts = useMemo(() => {
@@ -107,7 +106,6 @@ export const CustomerView: React.FC = () => {
 
       {/* 1. Below Navbar: Active Festival & Season Offer Campaign Showcase */}
       <CampaignShowcase
-        variant="navbar-banner"
         onFilterCategory={(cat) => {
           setSelectedCategory(cat);
           setActiveCustomerTab('storefront');
@@ -192,7 +190,7 @@ export const CustomerView: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              {userOrders.map(order => (
+              {uniqueById(userOrders).map(order => (
                 <div
                   key={order.id}
                   className="bg-white rounded-2xl border border-[#E8DDD8] p-6 shadow-sm space-y-4"
@@ -253,7 +251,12 @@ export const CustomerView: React.FC = () => {
 
                   {/* Items in order */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-2">
-                    {order.items.map(item => (
+                    {order.items.map(item => {
+                      const orderedProduct = products.find(p => p.id === item.productId);
+                      const alreadyReviewed = reviews.some(
+                        r => r.productId === item.productId && r.userId === currentUser.id
+                      );
+                      return (
                       <div
                         key={item.productId}
                         className="flex items-center gap-3 p-2.5 bg-[#FAF7F2] rounded-xl border border-[#E8DDD8]"
@@ -263,15 +266,29 @@ export const CustomerView: React.FC = () => {
                           alt={item.title}
                           className="w-12 h-12 rounded-lg"
                         />
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <h5 className="text-xs font-semibold text-[#2D1217] truncate">{item.title}</h5>
                           <div className="text-[11px] text-[#7A5B61]">Qty: {item.quantity}</div>
                           <div className="text-xs font-mono font-bold text-[#5B1423]">
                             {formatPrice(item.price * item.quantity)}
                           </div>
+                          {order.status === 'Delivered' && orderedProduct && (
+                            <button
+                              onClick={() => setReviewProduct(orderedProduct)}
+                              className={`mt-1 text-[11px] font-semibold flex items-center gap-1 cursor-pointer ${
+                                alreadyReviewed
+                                  ? 'text-emerald-700'
+                                  : 'text-[#7A1C30] hover:underline'
+                              }`}
+                            >
+                              <Star className={`w-3 h-3 ${alreadyReviewed ? 'fill-current' : ''}`} />
+                              <span>{alreadyReviewed ? 'Reviewed' : 'Write a Review'}</span>
+                            </button>
+                          )}
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {/* Order receipt footer */}
@@ -318,7 +335,7 @@ export const CustomerView: React.FC = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {wishlistedProducts.map(product => (
+              {uniqueById(wishlistedProducts).map(product => (
                 <div
                   key={product.id}
                   className="bg-white rounded-2xl border border-[#E8DDD8] overflow-hidden shadow-sm flex flex-col justify-between"
@@ -377,97 +394,6 @@ export const CustomerView: React.FC = () => {
 
       {activeCustomerTab === 'storefront' && (
         <div className="space-y-10">
-          
-          {/* Storefront Hero with Explore Apriori Action */}
-          <div className="bg-[#FAF7F2] rounded-3xl border border-[#E8DDD8] p-8 sm:p-12 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8">
-            <div className="max-w-xl space-y-4">
-              <div className="inline-flex items-center gap-2 bg-[#FCECE9] px-3 py-1 rounded-full text-xs text-[#5B1423] font-semibold border border-[#F2CAC2]">
-                <Sparkles className="w-3.5 h-3.5 text-[#5B1423]" />
-                <span>Intelligent Retail Powered by 200 Transaction Apriori Rules</span>
-              </div>
-
-              <h1 className="font-display text-4xl sm:text-5xl font-semibold tracking-tight text-[#2D1217] leading-tight">
-                Artisanal Luxury, Engineered by Data.
-              </h1>
-
-              <p className="text-sm text-[#5C4449] leading-relaxed">
-                Discover exceptional Skincare, Makeup, Bodycare, and Fragrance. Our Apriori engine continuously analyzes collective checkout affinities to surface high-confidence recommendations.
-              </p>
-
-              <div className="pt-2 flex flex-wrap items-center gap-4">
-                <button
-                  onClick={() => setActiveCustomerTab('recommendations')}
-                  className="px-6 py-3 bg-[#5B1423] hover:bg-[#7A1C30] text-white text-xs font-semibold uppercase tracking-wider rounded-xl shadow-md transition-colors flex items-center gap-2 cursor-pointer"
-                >
-                  <Sparkles className="w-4 h-4 text-[#F2CAC2]" />
-                  <span>Explore Apriori Recommendations</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Hero Image Showcase */}
-            <div className="w-full md:w-80 h-72 rounded-2xl overflow-hidden border border-[#E8DDD8] shadow-lg bg-white relative">
-              <ImageWithFallback
-                src={products[0]?.imageUrl}
-                alt="Featured Atelier Piece"
-                className="w-full h-full"
-              />
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent p-4 text-white">
-                <span className="text-[10px] uppercase tracking-wider font-semibold text-[#F2CAC2]">
-                  Featured Piece · {products[0]?.category}
-                </span>
-                <div className="text-xs font-semibold truncate">{products[0]?.title}</div>
-                <div className="text-xs font-mono font-bold text-[#FAF7F2]">
-                  {formatPrice(products[0]?.price)}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 2. Around the Explore Apriori Recommendation: Festival & Season Campaign Spotlight */}
-          {/* User Request: "visible in customer dashboard around the explore apriori recommendation instead of what is existing right now (the recently add product)" */}
-          <CampaignShowcase variant="apriori-spotlight" />
-
-          {/* Quick Apriori Highlight Ribbon */}
-          {topRecommendations.length > 0 && (
-            <div className="p-4 bg-[#FCECE9] rounded-2xl border border-[#F2CAC2] flex flex-col md:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-[#5B1423] text-white flex items-center justify-center shrink-0">
-                  <Sparkles className="w-4 h-4 text-[#F2CAC2]" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-[#5B1423] uppercase tracking-wider">
-                    Highest Support & Confidence Apriori Match
-                  </h4>
-                  <p className="text-xs text-[#5C4449]">
-                    Customers who bought <strong>{topRecommendations[0].basedOnProducts[0]?.title}</strong> also co-purchased <strong>{topRecommendations[0].recommendedProduct.title}</strong> with {topRecommendations[0].confidencePercent}% confidence!
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={() => setActiveMathModalRule(topRecommendations[0].rule)}
-                  className="px-3 py-1.5 bg-white text-[#5B1423] text-xs font-medium rounded-lg border border-[#E8B4B8] hover:bg-[#FAF7F2] transition-colors cursor-pointer"
-                >
-                  Inspect Math
-                </button>
-                <button
-                  onClick={() => addToCart(topRecommendations[0].recommendedProduct, 1)}
-                  className="px-3 py-1.5 bg-white hover:bg-[#FAF7F2] text-[#5B1423] border border-[#E8DDD8] text-xs font-semibold rounded-lg shadow-xs transition-colors cursor-pointer"
-                >
-                  + Add ({formatPrice(topRecommendations[0].recommendedProduct.price)})
-                </button>
-                <button
-                  onClick={() => instantOrder(topRecommendations[0].recommendedProduct, 1)}
-                  className="px-3.5 py-1.5 bg-[#5B1423] hover:bg-[#7A1C30] text-white text-xs font-semibold uppercase tracking-wider rounded-lg shadow-sm transition-colors flex items-center gap-1 cursor-pointer"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-[#F2CAC2]" />
-                  <span>Order Now</span>
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* Filter & Search Bar with the 4 Categories */}
           <div className="space-y-4">
@@ -475,7 +401,7 @@ export const CustomerView: React.FC = () => {
               
               {/* Category Filter Tabs: Skincare, Makeup, Bodycare, Fragrance */}
               <div className="flex items-center gap-1.5 overflow-x-auto p-1.5 bg-white rounded-xl border border-[#E8DDD8]">
-                {categories.map(cat => (
+                {categoryTabs.map(cat => (
                   <button
                     key={cat}
                     onClick={() => setSelectedCategory(cat)}
@@ -517,9 +443,9 @@ export const CustomerView: React.FC = () => {
 
             </div>
 
-            {/* Product Grid */}
+            {/* Product Grid (deduped: twin ids from repeated syncs render once) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pt-4">
-              {filteredProducts.map(product => {
+              {uniqueById(filteredProducts).map(product => {
                 const isWishlisted = wishlist.includes(product.id);
 
                 return (
@@ -639,6 +565,8 @@ export const CustomerView: React.FC = () => {
 
         </div>
       )}
+
+      <ReviewModal product={reviewProduct} onClose={() => setReviewProduct(null)} />
 
     </div>
   );

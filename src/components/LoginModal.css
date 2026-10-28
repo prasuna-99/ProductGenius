@@ -1,0 +1,297 @@
+/* ProductGenius Login — converted from charlie/login (Orbitron + Exo 2 theme).
+   Scoped under .pg-login-* so the global boutique styles stay untouched. */
+
+.pg-login-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: linear-gradient(135deg, #fff4e0 0%, #f6e0b8 45%, #7a2332 100%);
+  font-family: 'Exo 2', sans-serif;
+  overflow-y: auto;
+  color: #3f1d24;
+}
+
+.pg-login-overlay::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(122,35,50,0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(122,35,50,0.06) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+}
+
+.pg-login-overlay *, .pg-login-overlay *::before, .pg-login-overlay *::after { box-sizing: border-box; }
+
+.pg-login-orb {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.22;
+  pointer-events: none;
+}
+.pg-login-orb1 { width: 420px; height: 420px; background: rgba(227,179,109,0.55); top: -120px; left: -120px; animation: pg-login-drift 9s ease-in-out infinite alternate; }
+.pg-login-orb2 { width: 320px; height: 320px; background: rgba(122,35,50,0.65); bottom: -100px; right: -90px; animation: pg-login-drift 11s ease-in-out infinite alternate-reverse; }
+
+@keyframes pg-login-drift { to { transform: translate(40px, 30px); } }
+
+.pg-login-card-wrap {
+  position: relative;
+  width: 420px;
+  max-width: 100%;
+  padding: 2px;
+  border-radius: 16px;
+  overflow: hidden;
+  margin: auto;
+}
+
+.pg-login-card-wrap::before,
+.pg-login-card-wrap::after {
+  content: '';
+  position: absolute;
+  inset: -50%;
+  border-radius: 50%;
+  animation: pg-login-spin 7s linear infinite;
+}
+
+.pg-login-card-wrap::before {
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg, transparent 80deg,
+    #e3b36d 80deg, #e3b36d 150deg,
+    transparent 150deg, transparent 260deg,
+    #7a2332 260deg, #7a2332 330deg,
+    transparent 330deg
+  );
+}
+
+.pg-login-card-wrap::after {
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg, transparent 55deg,
+    #7a2332 55deg, #7a2332 120deg,
+    transparent 120deg, transparent 240deg,
+    #e3b36d 240deg, #e3b36d 305deg,
+    transparent 305deg
+  );
+  animation-delay: 3.5s;
+}
+
+@keyframes pg-login-spin { to { transform: rotate(360deg); } }
+
+.pg-login-card {
+  position: relative;
+  z-index: 1;
+  background: linear-gradient(145deg, #fff9f1, #f6e6cf);
+  border: 1px solid rgba(122,35,50,0.16);
+  border-radius: 14px;
+  padding: 40px 38px 44px;
+  box-shadow: 0 22px 60px rgba(76,20,36,0.24);
+}
+
+.pg-login-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+  background: transparent;
+  border: none;
+  color: #8b5f49;
+  cursor: pointer;
+  padding: 4px;
+}
+.pg-login-close:hover { color: #7a2332; }
+
+.pg-login-tabs {
+  display: flex;
+  border-radius: 8px;
+  background: rgba(122,35,50,0.07);
+  border: 1px solid rgba(122,35,50,0.12);
+  padding: 4px;
+  margin-bottom: 16px;
+}
+
+.pg-login-tab-btn {
+  flex: 1;
+  padding: 9px 0;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #8b5f49;
+  font-family: 'Exo 2', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.pg-login-tab-btn.pg-login-active {
+  background: linear-gradient(135deg, rgba(227,179,109,0.9), rgba(122,35,50,0.9));
+  color: #fff9f1;
+  box-shadow: 0 0 16px rgba(122,35,50,0.16);
+}
+
+.pg-login-role-selector {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.pg-login-role-btn {
+  padding: 10px 8px;
+  border: 1px solid rgba(122,35,50,0.14);
+  border-radius: 8px;
+  background: rgba(122,35,50,0.06);
+  color: #7a2332;
+  font-family: 'Exo 2', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.pg-login-role-btn.pg-login-active {
+  background: linear-gradient(135deg, #7a2332, #b64b5a);
+  color: #fff9f1;
+  box-shadow: 0 0 12px rgba(122,35,50,0.16);
+}
+
+.pg-login-card h2 {
+  font-family: 'Orbitron', monospace;
+  font-size: 20px;
+  font-weight: 700;
+  text-align: center;
+  margin: 0 0 28px;
+  background: linear-gradient(90deg, #7a2332, #e3b36d);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: 2px;
+}
+
+.pg-login-field { margin-bottom: 22px; }
+
+.pg-login-field label {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #8b5f49;
+  margin-bottom: 6px;
+}
+
+.pg-login-field input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px solid rgba(122,35,50,0.25);
+  outline: none;
+  color: #3f1d24;
+  font-family: 'Exo 2', sans-serif;
+  font-size: 15px;
+  padding: 8px 2px;
+  transition: border-color 0.3s, box-shadow 0.3s;
+  caret-color: #7a2332;
+  border-radius: 0;
+}
+
+.pg-login-field input::placeholder { color: rgba(139,95,73,0.55); }
+
+.pg-login-field input:focus {
+  border-bottom-color: #7a2332;
+  box-shadow: 0 2px 0 rgba(122,35,50,0.16);
+}
+
+.pg-login-forgot { text-align: right; margin-top: -12px; margin-bottom: 28px; }
+.pg-login-forgot span { font-size: 12px; color: #8b5f49; }
+
+.pg-login-btn-submit {
+  width: 100%;
+  padding: 13px;
+  background: linear-gradient(135deg, rgba(227,179,109,0.9), rgba(122,35,50,0.92));
+  border: 1px solid rgba(122,35,50,0.28);
+  border-radius: 8px;
+  color: #fff9f1;
+  font-family: 'Orbitron', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s;
+  margin-top: 8px;
+}
+
+.pg-login-btn-submit::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,249,241,0.16), rgba(227,179,109,0.24));
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.pg-login-btn-submit:hover:not(:disabled) {
+  border-color: #7a2332;
+  box-shadow: 0 0 24px rgba(122,35,50,0.2), inset 0 0 16px rgba(227,179,109,0.12);
+  transform: translateY(-1px);
+}
+
+.pg-login-btn-submit:hover::before { opacity: 1; }
+.pg-login-btn-submit:active { transform: translateY(0); }
+.pg-login-btn-submit:disabled { opacity: 0.6; cursor: wait; }
+.pg-login-btn-submit span { position: relative; z-index: 1; }
+
+.pg-login-footer-note { text-align: center; margin: 26px 0 0; font-size: 12px; color: #8b5f49; }
+.pg-login-footer-note button {
+  background: none; border: none; padding: 0;
+  color: #7a2332; font-size: 12px; font-weight: 500; cursor: pointer;
+  font-family: 'Exo 2', sans-serif;
+}
+.pg-login-footer-note button:hover { text-decoration: underline; }
+
+.pg-login-terms { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 22px; }
+.pg-login-terms input[type="checkbox"] { margin-top: 2px; accent-color: #7a2332; width: 14px; height: 14px; flex-shrink: 0; cursor: pointer; }
+.pg-login-terms label { font-size: 12px; color: #8b5f49; line-height: 1.5; }
+
+.pg-login-error {
+  margin-bottom: 18px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(185, 28, 28, 0.08);
+  border: 1px solid rgba(185, 28, 28, 0.25);
+  color: #991b1b;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.pg-login-offline {
+  margin-bottom: 18px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(227,179,109,0.16);
+  border: 1px solid rgba(227,179,109,0.5);
+  color: #7a4a12;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.pg-login-demo {
+  margin-top: 18px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(122,35,50,0.05);
+  border: 1px dashed rgba(122,35,50,0.25);
+  color: #8b5f49;
+  font-size: 11px;
+  line-height: 1.6;
+  font-family: monospace;
+}

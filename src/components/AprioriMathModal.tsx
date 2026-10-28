@@ -9,9 +9,11 @@ export const AprioriMathModal: React.FC = () => {
 
   const rule = activeMathModalRule;
   const productMap = new Map(products.map(p => [p.id, p]));
+  // Rules are canonical; fall back to representative listing with same canonicalId.
+  const repOf = (id: string) => productMap.get(id) || products.find(p => p.canonicalId === id);
 
-  const antecedentProds = rule.antecedent.map(id => productMap.get(id)).filter(Boolean);
-  const consequentProds = rule.consequent.map(id => productMap.get(id)).filter(Boolean);
+  const antecedentProds = rule.antecedent.map(id => repOf(id)).filter(Boolean);
+  const consequentProds = rule.consequent.map(id => repOf(id)).filter(Boolean);
 
   const totalN = transactions.length;
   const bothCount = rule.transactionCount;

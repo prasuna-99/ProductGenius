@@ -1,7 +1,8 @@
 export type Role = 'customer' | 'seller' | 'admin';
 
 export interface User {
-  id: string;
+  id: string; // USR-<ROLE>-<YYYYMMDD>-<NNNNNN>
+  seqNum?: number; // global account number -> owner prefix in PRD-/REV- ids
   name: string;
   email: string;
   role: Role;
@@ -13,7 +14,8 @@ export interface User {
 export type ProductCategory = 'Skincare' | 'Makeup' | 'Bodycare' | 'Fragrance' | string;
 
 export interface Product {
-  id: string;
+  id: string; // listingId: seller-specific (e.g. pg-s1-soap). For cart/stock/money.
+  canonicalId: string; // shared mining key (e.g. SOAP). Same product from different sellers shares this. Apriori mines this.
   title: string;
   category: ProductCategory;
   price: number; // In Rs
@@ -43,8 +45,21 @@ export interface CartItem {
   quantity: number;
 }
 
-export interface OrderItem {
+export interface Review {
+  id: string;
   productId: string;
+  userId: string;
+  userName: string;
+  rating: number; // 1-5 stars
+  text: string;
+  imageUrl?: string; // optional customer photo (gallery upload)
+  date: string;
+}
+
+export interface OrderItem {
+  productId: string; // listingId: which seller's listing was bought
+  canonicalId?: string; // shared product code for Apriori ingestion
+  sellerId?: string; // which seller owns this line item
   title: string;
   price: number;
   quantity: number;
@@ -62,6 +77,9 @@ export interface Order {
   discount: number;
   total: number;
   status: 'Pending' | 'Processing' | 'Shipped' | 'Delivered' | 'Cancelled';
+  // Per-seller fulfillment (multi-seller): each involved seller marks their own
+  // items. Global status becomes Delivered only when ALL sellers delivered.
+  sellerStatus?: Record<string, Order['status']>;
   date: string;
   shippingAddress: {
     street: string;
@@ -70,6 +88,29 @@ export interface Order {
     zip: string;
   };
   trackingNumber: string;
+}
+
+// Global categories (admin-approved; every seller can use them) +
+// per-seller requests with an approval lifecycle.
+export interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  isActive?: boolean;
+}
+
+export interface CategoryRequest {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  requestedBy: string;
+  requesterName?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  adminNote?: string;
+  decidedAt?: string;
+  categoryId?: string;
 }
 
 // Festival & Season Campaign Types

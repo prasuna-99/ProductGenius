@@ -3,7 +3,8 @@ import { GOOGLE_ADJUSTED_PRODUCTS, INITIAL_PARSED_DATASET } from './userDataset'
 
 export const INITIAL_USERS: User[] = [
   {
-    id: 'user-customer-1',
+    id: 'USR-CUS-20261007-000006',
+    seqNum: 1,
     name: 'Elena Rostova',
     email: 'elena.rostova@boutique.com',
     role: 'customer',
@@ -11,7 +12,8 @@ export const INITIAL_USERS: User[] = [
     joinedDate: 'Jan 2026',
   },
   {
-    id: 'user-seller-1',
+    id: 'USR-SEL-20261007-000012',
+    seqNum: 2,
     name: 'Atelier Bordeaux',
     email: 'curator@atelierbordeaux.com',
     role: 'seller',
@@ -20,7 +22,28 @@ export const INITIAL_USERS: User[] = [
     joinedDate: 'Nov 2025',
   },
   {
-    id: 'user-admin-1',
+    id: 'USR-SEL-20261007-000008',
+    seqNum: 3,
+    name: 'Himalayan Glow',
+    email: 'namaste@himalayanglow.com',
+    role: 'seller',
+    storeName: 'Himalayan Glow House',
+    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=200',
+    joinedDate: 'Dec 2025',
+  },
+  {
+    id: 'USR-SEL-20261007-000009',
+    seqNum: 4,
+    name: 'Rosy Shrestha',
+    email: 'rosy@rosyglow.com',
+    role: 'seller',
+    storeName: 'Rosy Glow Studio',
+    avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=200',
+    joinedDate: 'Jan 2026',
+  },
+  {
+    id: 'USR-ADM-20261007-000010',
+    seqNum: 5,
     name: 'Marcus Vance',
     email: 'marcus@productgenius.internal',
     role: 'admin',
@@ -29,7 +52,7 @@ export const INITIAL_USERS: User[] = [
   },
 ];
 
-// Initial products: 40 curated Skincare, Makeup, Bodycare, and Fragrance products
+// Initial products: multi-seller catalog with shared canonicalIds for Apriori dedup
 export const INITIAL_PRODUCTS: Product[] = GOOGLE_ADJUSTED_PRODUCTS;
 
 // Initial transactions: 200 clean transactions provided by user
@@ -37,37 +60,43 @@ export const INITIAL_TRANSACTIONS: Transaction[] = INITIAL_PARSED_DATASET.transa
 
 export const INITIAL_ORDERS: Order[] = [
   {
-    id: 'ORD-9821',
-    customerId: 'user-customer-1',
+    id: 'ORD-20260925-000001',
+    customerId: 'USR-CUS-20261007-000006',
     customerName: 'Elena Rostova',
     customerEmail: 'elena.rostova@boutique.com',
     items: [
       {
-        productId: 'pg-skn-01',
-        title: 'Face Wash',
-        price: 850,
+        productId: 'PRD-000012-000001',
+        canonicalId: 'SOAP',
+        sellerId: 'USR-SEL-20261007-000012',
+        title: 'Soap',
+        price: 250,
         quantity: 1,
-        imageUrl: '/images/products/Face Wash.jpg',
+        imageUrl: '/images/products/Body Wash.jpg',
       },
       {
-        productId: 'pg-skn-02',
-        title: 'Cleanser',
-        price: 950,
+        productId: 'PRD-000007-000002',
+        canonicalId: 'SHAMPOO',
+        sellerId: 'USR-SEL-20261007-000012',
+        title: 'Shampoo',
+        price: 750,
         quantity: 1,
-        imageUrl: '/images/products/Cleanser.jpg',
+        imageUrl: '/images/products/Shampoo.jpg',
       },
       {
-        productId: 'pg-skn-04',
-        title: 'Serum',
-        price: 1850,
+        productId: 'PRD-000007-000003',
+        canonicalId: 'MAKEUP-BRUSH',
+        sellerId: 'USR-SEL-20261007-000012',
+        title: 'Makeup Brush',
+        price: 650,
         quantity: 1,
-        imageUrl: '/images/products/Serum.jpg',
+        imageUrl: '/images/products/Make up Brush.jpg',
       },
     ],
-    subtotal: 3650,
+    subtotal: 1650,
     shipping: 0,
-    discount: 365,
-    total: 3285,
+    discount: 165,
+    total: 1485,
     status: 'Shipped',
     date: '2026-09-25',
     shippingAddress: {
@@ -79,30 +108,34 @@ export const INITIAL_ORDERS: Order[] = [
     trackingNumber: 'PG-EXP-982104-NP',
   },
   {
-    id: 'ORD-9755',
-    customerId: 'user-customer-1',
+    id: 'ORD-20260920-000001',
+    customerId: 'USR-CUS-20261007-000006',
     customerName: 'Elena Rostova',
     customerEmail: 'elena.rostova@boutique.com',
     items: [
       {
-        productId: 'pg-bdy-13',
+        productId: 'PRD-000008-000002',
+        canonicalId: 'SHAMPOO',
+        sellerId: 'USR-SEL-20261007-000008',
         title: 'Shampoo',
-        price: 750,
+        price: 795,
         quantity: 1,
         imageUrl: '/images/products/Shampoo.jpg',
       },
       {
-        productId: 'pg-bdy-14',
+        productId: 'PRD-000007-000021',
+        canonicalId: 'CONDITIONER',
+        sellerId: 'USR-SEL-20261007-000012',
         title: 'Conditioner',
         price: 800,
         quantity: 1,
         imageUrl: '/images/products/Conditioner.jpg',
       },
     ],
-    subtotal: 1550,
+    subtotal: 1595,
     shipping: 0,
-    discount: 155,
-    total: 1395,
+    discount: 160,
+    total: 1435,
     status: 'Delivered',
     date: '2026-09-20',
     shippingAddress: {
@@ -118,7 +151,7 @@ export const INITIAL_ORDERS: Order[] = [
 // Initial Festival & Season Campaigns
 export const INITIAL_CAMPAIGNS: Campaign[] = [
   {
-    id: 'cmp-festive-01',
+    id: 'CMP-20260920-000001',
     title: 'Grand Diwali & Tihar Festival Gala',
     type: 'festival',
     tagline: 'Illuminate Your Radiance with 25% Off on Skincare & Fragrance Pairs',
@@ -134,7 +167,7 @@ export const INITIAL_CAMPAIGNS: Campaign[] = [
     description: 'Celebrate the festive season with handcrafted luxury essentials. Enjoy flat 25% savings and accelerated Apriori festival pairing bundles.',
   },
   {
-    id: 'cmp-dashain-02',
+    id: 'CMP-20260925-000001',
     title: 'Dashain Utsav Festive Bonanza',
     type: 'festival',
     tagline: 'Exclusive Festive Elegance: Flat 30% Off on Curated Luxury Makeup',
@@ -150,7 +183,7 @@ export const INITIAL_CAMPAIGNS: Campaign[] = [
     description: 'Elevate your festival celebration look with longwear velvet matte foundations, artisanal primers, and couture lipsticks.',
   },
   {
-    id: 'cmp-season-03',
+    id: 'CMP-20260915-000001',
     title: 'Autumn Glow Seasonal Revival',
     type: 'season',
     tagline: 'Hydrate & Protect: Flat 20% Off on Skincare & Bodycare Nourishment',

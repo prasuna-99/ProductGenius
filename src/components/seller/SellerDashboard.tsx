@@ -17,7 +17,9 @@ import {
 import { useApp } from '../../context/AppContext';
 import { Product, Order } from '../../types';
 import { ProductFormModal } from './ProductFormModal';
+import { CategoryRequestBox } from './CategoryRequestBox';
 import { formatPrice } from '../../utils/format';
+import { uniqueById } from '../../utils/unique';
 import { ImageWithFallback } from '../common/ImageWithFallback';
 
 export const SellerDashboard: React.FC = () => {
@@ -37,21 +39,44 @@ export const SellerDashboard: React.FC = () => {
   const [productToEdit, setProductToEdit] = useState<Product | null>(null);
   const [searchFilter, setSearchFilter] = useState('');
 
-  // Seller metrics calculations
-  const sellerProducts = products;
-  const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
-  const totalUnitsSold = orders.reduce(
+  // Seller isolation: private inventory (own listings only).
+  // Storefront stays public (customer sees all sellers), Apriori merges via canonicalId.
+  const sellerProducts = useMemo(
+    () => products.filter(p => p.sellerId === currentUser.id),
+    [products, currentUser.id]
+  );
+  const ownIds = useMemo(() => new Set(sellerProducts.map(p => p.id)), [sellerProducts]);
+  // Orders containing at least one of my listings; rows show only my items.
+  const sellerOrders = useMemo(
+    () =>
+      orders
+        .map(o => ({
+          ...o,
+          items: o.items.filter(i => (i.sellerId ? i.sellerId === currentUser.id : ownIds.has(i.productId))),
+        }))
+        .filter(o => o.items.length > 0),
+    [orders, currentUser.id, ownIds]
+  );
+  const totalRevenue = sellerOrders.reduce(
+    (sum, o) => sum + o.items.reduce((s, i) => s + i.price * i.quantity, 0),
+    0
+  );
+  const totalUnitsSold = sellerOrders.reduce(
     (sum, o) => sum + o.items.reduce((s, i) => s + i.quantity, 0),
     0
   );
   const lowStockItems = sellerProducts.filter(p => p.stockCount <= 5);
 
-  // Mined Apriori association insights for products
+  // Mined Apriori association insights (rules are canonical; resolve to my listings when possible)
   const productMap = new Map(products.map(p => [p.id, p]));
+  const canonicalRep = (canonical: string) =>
+    sellerProducts.find(p => p.canonicalId === canonical) ||
+    products.find(p => p.canonicalId === canonical) ||
+    productMap.get(canonical);
   const merchantAssociationInsights = useMemo(() => {
     return associationRules.slice(0, 5).map(rule => {
-      const p1 = productMap.get(rule.antecedent[0]);
-      const p2 = productMap.get(rule.consequent[0]);
+      const p1 = canonicalRep(rule.antecedent[0]);
+      const p2 = canonicalRep(rule.consequent[0]);
       return {
         rule,
         antecedent: p1,
@@ -127,10 +152,10 @@ export const SellerDashboard: React.FC = () => {
             <Package className="w-4 h-4 text-[#5B1423]" />
           </div>
           <div className="text-2xl font-bold font-mono text-[#2D1217] tabular-nums">
-            {orders.length}
+            {sellerOrders.length}
           </div>
           <div className="text-[11px] text-[#5C4449] mt-1">
-            {orders.filter(o => o.status === 'Processing').length} awaiting fulfillment
+            {sellerOrders.filter(o => o.status === 'Processing').length} awaiting fulfillment
           </div>
         </div>
 
@@ -161,6 +186,9 @@ export const SellerDashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* Request new global category */}
+      <CategoryRequestBox />
+
       {/* Tabs */}
       <div className="flex items-center gap-2 border-b border-[#E8DDD8] pb-4">
         <button
@@ -182,7 +210,7 @@ export const SellerDashboard: React.FC = () => {
               : 'bg-white text-[#5C4449] hover:bg-[#FCECE9] hover:text-[#5B1423] border border-[#E8DDD8]'
           }`}
         >
-          Fulfillment Orders ({orders.length})
+          Fulfillment Orders ({sellerOrders.length})
         </button>
 
         <button
@@ -232,7 +260,7 @@ export const SellerDashboard: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F5EBE6]">
-                  {filteredProducts.map(p => (
+                  {uniqueById(filteredProducts).map(p => (
                     <tr key={p.id} className="hover:bg-[#FAF7F2]/50 transition-colors">
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-3">
@@ -319,7 +347,13 @@ export const SellerDashboard: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F5EBE6]">
-                  {orders.map(order => (
+                  {uniqueById(sellerOrders).map(order => {
+                    const myStatus = order.sellerStatus?.[currentUser.id] || order.status;
+                    const others = Object.entries(order.sellerStatus || {}).filter(
+                      ([sid]) => sid !== currentUser.id
+                    );
+                    const myTotal = order.items.reduce((s, i) => s + i.price * i.quantity, 0);
+                    return (
                     <tr key={order.id} className="hover:bg-[#FAF7F2]/50 transition-colors">
                       <td className="py-3 px-4 font-mono font-bold text-[#5B1423]">{order.id}</td>
                       <td className="py-3 px-4 text-[#5C4449]">{order.date}</td>
@@ -331,16 +365,21 @@ export const SellerDashboard: React.FC = () => {
                         {order.items.map(i => `${i.quantity}x ${i.title.split(' ')[0]}`).join(', ')}
                       </td>
                       <td className="py-3 px-4 font-mono font-bold text-[#2D1217]">
-                        {formatPrice(order.total)}
+                        {formatPrice(myTotal)}
                       </td>
                       <td className="py-3 px-4 text-[#5C4449]">
                         {order.shippingAddress.city}, {order.shippingAddress.state}
                       </td>
                       <td className="py-3 px-4">
                         <select
-                          value={order.status}
-                          onChange={e => updateOrderStatus(order.id, e.target.value as any)}
+                          value={myStatus}
+                          onChange={e =>
+                            updateOrderStatus(order.id, e.target.value as any, {
+                              sellerId: currentUser.id,
+                            })
+                          }
                           className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-[#E8DDD8] bg-[#FAF7F2] text-[#2D1217] focus:outline-none focus:ring-1 focus:ring-[#7A1C30] cursor-pointer"
+                          title="Your fulfillment status for your items in this order"
                         >
                           <option value="Pending">Pending</option>
                           <option value="Processing">Processing</option>
@@ -348,9 +387,16 @@ export const SellerDashboard: React.FC = () => {
                           <option value="Delivered">Delivered</option>
                           <option value="Cancelled">Cancelled</option>
                         </select>
+                        {others.length > 0 && (
+                          <div className="text-[10px] text-[#7A5B61] mt-1">
+                            Others: {others.map(([sid, st]) => `${st}`).join(' · ')} — dataset
+                            ingests when all sellers delivered
+                          </div>
+                        )}
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -369,7 +415,7 @@ export const SellerDashboard: React.FC = () => {
               </h3>
             </div>
             <p className="text-xs text-[#5C4449] leading-relaxed max-w-3xl">
-              Using the Apriori algorithm on 200 customer transactions, these product associations reflect high support and confidence. Sellers can use these insights to launch curated gift bundles, cross-merchandise complementary pieces, and maximize average order value in Rupees.
+              Using the Apriori algorithm on 300 customer transactions, these product associations reflect high support and confidence. Sellers can use these insights to launch curated gift bundles, cross-merchandise complementary pieces, and maximize average order value in Rupees.
             </p>
           </div>
 

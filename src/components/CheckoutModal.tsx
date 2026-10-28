@@ -22,13 +22,19 @@ export const CheckoutModal: React.FC = () => {
     activeCampaigns.length > 0 ? activeCampaigns[0].discountCode : ''
   );
   const [placedOrderInfo, setPlacedOrderInfo] = useState<{ id: string; tracking: string } | null>(null);
+  const [isPlacing, setIsPlacing] = useState(false);
 
   if (!isCheckoutModalOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const order = placeOrder({ street, city, state, zip }, couponCode);
-    setPlacedOrderInfo({ id: order.id, tracking: order.trackingNumber });
+    setIsPlacing(true);
+    try {
+      const order = await placeOrder({ street, city, state, zip }, couponCode);
+      setPlacedOrderInfo({ id: order.id, tracking: order.trackingNumber });
+    } finally {
+      setIsPlacing(false);
+    }
   };
 
   const handleFinish = (targetTab: 'orders' | 'storefront' = 'orders') => {
@@ -215,9 +221,10 @@ export const CheckoutModal: React.FC = () => {
               <div className="pt-3">
                 <button
                   type="submit"
-                  className="w-full py-3 bg-[#5B1423] hover:bg-[#7A1C30] text-white font-semibold text-xs uppercase tracking-wider rounded-xl shadow-md transition-colors cursor-pointer flex items-center justify-center gap-2"
+                  disabled={isPlacing}
+                  className="w-full py-3 bg-[#5B1423] hover:bg-[#7A1C30] text-white font-semibold text-xs uppercase tracking-wider rounded-xl shadow-md transition-colors cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60"
                 >
-                  <span>Confirm Order ({formatPrice(cartSubtotal)})</span>
+                  <span>{isPlacing ? 'Placing Order...' : `Confirm Order (${formatPrice(cartSubtotal)})`}</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>

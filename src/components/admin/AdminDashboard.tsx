@@ -37,6 +37,7 @@ import { useApp } from '../../context/AppContext';
 import { Role, Product, User, Campaign } from '../../types';
 import { ProductFormModal } from '../seller/ProductFormModal';
 import { CampaignManagerModal } from './CampaignManagerModal';
+import { CategoryApprovalQueue } from './CategoryApprovalQueue';
 import { RAW_DATASET_TEXT, GOOGLE_ADJUSTED_PRODUCTS } from '../../data/userDataset';
 import { formatPrice } from '../../utils/format';
 import { ImageWithFallback } from '../common/ImageWithFallback';
@@ -107,6 +108,11 @@ export const AdminDashboard: React.FC = () => {
   // Platform calculations in Rs
   const totalGMV = orders.reduce((sum, o) => sum + o.total, 0);
   const productMap = new Map(products.map(p => [p.id, p]));
+  // Rules are canonical (multi-seller dedup); resolve to a representative listing title.
+  const repTitle = (canonicalOrId: string) =>
+    productMap.get(canonicalOrId)?.title ||
+    products.find(p => p.canonicalId === canonicalOrId)?.title ||
+    canonicalOrId;
 
   const showToast = (msg: string) => {
     setNotification(msg);
@@ -124,7 +130,7 @@ export const AdminDashboard: React.FC = () => {
     setTimeout(() => {
       recomputeApriori();
       setIsMining(false);
-      showToast('Apriori association rules successfully re-mined from 200 transaction records.');
+      showToast('Apriori association rules successfully re-mined from 300 transaction records.');
     }, 300);
   };
 
@@ -267,7 +273,7 @@ export const AdminDashboard: React.FC = () => {
               ProductGenius Ops & Campaigns
             </h1>
             <p className="text-xs text-[#E8DDD8] mt-0.5">
-              Launch Festival & Season offers, manage catalog in Rs, oversee merchants, and calibrate the 200-transaction Apriori engine.
+              Launch Festival & Season offers, manage catalog in Rs, oversee merchants, and calibrate the 300-transaction Apriori engine.
             </p>
           </div>
         </div>
@@ -802,6 +808,7 @@ export const AdminDashboard: React.FC = () => {
       {/* TAB 3: SELLERS & USERS */}
       {activeAdminTab === 'sellers' && (
         <div className="space-y-4">
+          <CategoryApprovalQueue />
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h3 className="font-display text-xl font-semibold text-[#2D1217]">
@@ -979,7 +986,7 @@ export const AdminDashboard: React.FC = () => {
                 className="px-5 py-2.5 bg-[#5B1423] hover:bg-[#7A1C30] text-white text-xs font-semibold uppercase tracking-wider rounded-lg shadow-md transition-all flex items-center gap-2 cursor-pointer"
               >
                 <RefreshCw className={`w-4 h-4 ${isMining ? 'animate-spin' : ''}`} />
-                <span>{isMining ? 'Mining 200 Transactions...' : 'Re-Mine Association Rules'}</span>
+                <span>{isMining ? 'Mining 300 Transactions...' : 'Re-Mine Association Rules'}</span>
               </button>
             </div>
 
@@ -1059,8 +1066,8 @@ export const AdminDashboard: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-[#F5EBE6]">
                   {associationRules.slice(0, 15).map(rule => {
-                    const ante = rule.antecedent.map(id => productMap.get(id)?.title || id).join(' + ');
-                    const cons = rule.consequent.map(id => productMap.get(id)?.title || id).join(' + ');
+                    const ante = rule.antecedent.map(id => repTitle(id)).join(' + ');
+                    const cons = rule.consequent.map(id => repTitle(id)).join(' + ');
 
                     return (
                       <tr key={rule.id} className="hover:bg-[#FAF7F2]/50">
@@ -1102,7 +1109,7 @@ export const AdminDashboard: React.FC = () => {
                 User Dataset Records ({rawDatasetRows.length} Rows)
               </h3>
               <p className="text-xs text-[#5C4449]">
-                Raw user checkout transactions T0001 to T0200 mapped to Skincare, Makeup, Bodycare, and Fragrance.
+                Raw user checkout transactions T0001 to T0300 mapped to Skincare, Makeup, Bodycare, and Fragrance.
               </p>
             </div>
 
@@ -1110,11 +1117,11 @@ export const AdminDashboard: React.FC = () => {
               <button
                 onClick={() => {
                   resetToGoogleAdjustedDataset();
-                  showToast('Reset dataset to initial 200 user transactions.');
+                  showToast('Reset dataset to initial 300 user transactions.');
                 }}
                 className="px-3 py-1.5 bg-white border border-[#E8DDD8] rounded-lg text-xs font-semibold text-[#5C4449] hover:bg-[#FCECE9] cursor-pointer"
               >
-                Reset to 200 Rows
+                Reset to 300 Rows
               </button>
 
               <button
@@ -1167,7 +1174,7 @@ export const AdminDashboard: React.FC = () => {
             <div className="bg-[#5B1423] text-white p-5 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Database className="w-5 h-5 text-[#F2CAC2]" />
-                <h3 className="font-display text-lg font-semibold">200-Transaction Dataset Editor</h3>
+                <h3 className="font-display text-lg font-semibold">300-Transaction Dataset Editor</h3>
               </div>
               <button
                 onClick={() => setIsRawDatasetModalOpen(false)}
@@ -1195,7 +1202,7 @@ export const AdminDashboard: React.FC = () => {
                   onClick={() => setDatasetInputText(RAW_DATASET_TEXT)}
                   className="px-3 py-1.5 bg-white text-[#5B1423] border border-[#E8DDD8] rounded-lg text-xs font-medium cursor-pointer"
                 >
-                  Reset to 200 Transactions
+                  Reset to 300 Transactions
                 </button>
 
                 <button

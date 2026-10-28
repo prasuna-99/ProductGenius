@@ -9,7 +9,8 @@ import { CartDrawer } from './components/CartDrawer';
 import { CheckoutModal } from './components/CheckoutModal';
 import { ProductDetailModal } from './components/ProductDetailModal';
 import { AprioriMathModal } from './components/AprioriMathModal';
-import { AuthModal } from './components/AuthModal';
+import { LoginModal } from './components/LoginModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 const MainLayout: React.FC = () => {
   const { currentRole } = useApp();
@@ -34,7 +35,7 @@ const MainLayout: React.FC = () => {
       <CheckoutModal />
       <ProductDetailModal />
       <AprioriMathModal />
-      <AuthModal />
+      <LoginModal />
     </div>
   );
 };
@@ -42,7 +43,9 @@ const MainLayout: React.FC = () => {
 export default function App() {
   return (
     <AppProvider>
-      <MainLayout />
+      <ErrorBoundary>
+        <MainLayout />
+      </ErrorBoundary>
     </AppProvider>
   );
 }

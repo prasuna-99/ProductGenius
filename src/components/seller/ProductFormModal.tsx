@@ -3,6 +3,7 @@ import { X, Upload, Check, Image as ImageIcon, Link as LinkIcon, Sparkles, Loade
 import { useApp } from '../../context/AppContext';
 import { Product, ProductCategory } from '../../types';
 import { compressImage } from '../../utils/imageCompressor';
+import { uploadPhoto, dataUrlToBlob } from '../../utils/api';
 import { formatPrice } from '../../utils/format';
 
 interface ProductFormModalProps {
@@ -16,7 +17,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   onClose,
   productToEdit,
 }) => {
-  const { addProduct, editProduct, currentUser } = useApp();
+  const { addProduct, editProduct, currentUser, backendOnline, categories } = useApp();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [title, setTitle] = useState('');
@@ -33,6 +34,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [urlInput, setUrlInput] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const sampleImages = [
     { label: 'Skincare & Hydration', path: '/src/assets/images/skincare_cleanser_moisturizer_1790516249925.jpg' },
@@ -41,7 +43,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     { label: 'Artisanal Rose Perfume', path: '/src/assets/images/botanical_perfume_rose_1790511914245.jpg' },
   ];
 
-  const allowedCategories: ProductCategory[] = ['Skincare', 'Makeup', 'Bodycare', 'Fragrance'];
+  const allowedCategories: ProductCategory[] =
+    categories.length > 0 ? categories.map(c => c.name) : ['Skincare', 'Makeup', 'Bodycare', 'Fragrance'];
 
   useEffect(() => {
     if (productToEdit) {
@@ -73,7 +76,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Process and automatically compress image to prevent browser crashes / localStorage quota overflow
+  // Compress, then upload to Cloudinary when signed in (permanent URL shared by
+  // all devices); otherwise keep the local dataURL so the shop works offline.
   const handleFileProcess = async (file: File) => {
     if (!file.type.startsWith('image/')) {
       alert('Please select a valid image file (PNG, JPG, WebP, etc.).');
@@ -83,7 +87,12 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     setIsCompressing(true);
     try {
       const optimizedDataUrl = await compressImage(file, 800, 800, 0.82);
-      setImageUrl(optimizedDataUrl);
+      try {
+        const url = await uploadPhoto(dataUrlToBlob(optimizedDataUrl), 'products', file.name);
+        setImageUrl(url);
+      } catch {
+        setImageUrl(optimizedDataUrl);
+      }
       setUploadedFileName(file.name);
       setImageMethod('gallery');
     } catch (err) {
@@ -119,45 +128,50 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const featureList = features
       .split('\n')
       .map(f => f.trim())
       .filter(Boolean);
 
-    if (productToEdit) {
-      editProduct(productToEdit.id, {
-        title,
-        category,
-        price: Number(price),
-        originalPrice: Number(originalPrice),
-        stockCount: Number(stockCount),
-        inStock: Number(stockCount) > 0,
-        sku,
-        description,
-        imageUrl,
-        features: featureList,
-      });
-    } else {
-      addProduct({
-        title,
-        category,
-        price: Number(price),
-        originalPrice: Number(originalPrice),
-        rating: 5.0,
-        reviewsCount: 1,
-        inStock: Number(stockCount) > 0,
-        stockCount: Number(stockCount),
-        sku: sku || `PG-${Math.floor(100 + Math.random() * 900)}`,
-        sellerId: currentUser.id,
-        sellerName: currentUser.storeName || currentUser.name || 'Artisan Partner',
-        description,
-        features: featureList,
-        imageUrl,
-        tags: [category, 'New Arrival', 'Artisan'],
-        isFeatured: false,
-      });
+    setIsSaving(true);
+    try {
+      if (productToEdit) {
+        await editProduct(productToEdit.id, {
+          title,
+          category,
+          price: Number(price),
+          originalPrice: Number(originalPrice),
+          stockCount: Number(stockCount),
+          inStock: Number(stockCount) > 0,
+          sku,
+          description,
+          imageUrl,
+          features: featureList,
+        });
+      } else {
+        await addProduct({
+          title,
+          category,
+          price: Number(price),
+          originalPrice: Number(originalPrice),
+          rating: 5.0,
+          reviewsCount: 1,
+          inStock: Number(stockCount) > 0,
+          stockCount: Number(stockCount),
+          sku: sku || `PG-${Math.floor(100 + Math.random() * 900)}`,
+          sellerId: currentUser.id,
+          sellerName: currentUser.storeName || currentUser.name || 'Artisan Partner',
+          description,
+          features: featureList,
+          imageUrl,
+          tags: [category, 'New Arrival', 'Artisan'],
+          isFeatured: false,
+        });
+      }
+    } finally {
+      setIsSaving(false);
     }
 
     onClose();
@@ -516,6 +530,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
           {/* Form Actions */}
           <div className="pt-4 border-t border-[#E8DDD8] flex items-center justify-end gap-3 shrink-0">
+            {backendOnline === false && (
+              <span className="text-[11px] text-amber-700 mr-auto">
+                Backend unreachable — saves locally, syncs on next sign-in.
+              </span>
+            )}
             <button
               type="button"
               onClick={onClose}
@@ -525,11 +544,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={isCompressing}
-              className="px-6 py-2 bg-[#5B1423] hover:bg-[#7A1C30] text-white font-semibold rounded-lg shadow-sm transition-colors cursor-pointer flex items-center gap-1.5"
+              disabled={isCompressing || isSaving}
+              className="px-6 py-2 bg-[#5B1423] hover:bg-[#7A1C30] text-white font-semibold rounded-lg shadow-sm transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-60"
             >
               <Sparkles className="w-3.5 h-3.5 text-[#F2CAC2]" />
-              <span>{productToEdit ? 'Save Changes' : 'Publish Product to Catalog'}</span>
+              <span>{isSaving ? 'Publishing...' : productToEdit ? 'Save Changes' : 'Publish Product to Catalog'}</span>
             </button>
           </div>
 

@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { X, Sparkles, Gift, Tag, Calendar, Check, Percent } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Sparkles, Gift, Upload, Loader2 } from 'lucide-react';
 import { Campaign } from '../../types';
+import { compressImage } from '../../utils/imageCompressor';
+import { uploadPhoto, dataUrlToBlob } from '../../utils/api';
 
 interface CampaignManagerModalProps {
   isOpen: boolean;
@@ -27,6 +29,9 @@ export const CampaignManagerModal: React.FC<CampaignManagerModalProps> = ({
   const [isActive, setIsActive] = useState(true);
   const [featuredCategory, setFeaturedCategory] = useState<Campaign['featuredCategory']>('All');
   const [description, setDescription] = useState('');
+  const [bannerImageUrl, setBannerImageUrl] = useState<string | undefined>(undefined);
+  const [isCompressing, setIsCompressing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (campaignToEdit) {
@@ -42,6 +47,7 @@ export const CampaignManagerModal: React.FC<CampaignManagerModalProps> = ({
       setIsActive(campaignToEdit.isActive);
       setFeaturedCategory(campaignToEdit.featuredCategory);
       setDescription(campaignToEdit.description);
+      setBannerImageUrl(campaignToEdit.bannerImageUrl);
     } else {
       setTitle('Grand Diwali & Tihar Festival Gala');
       setType('festival');
@@ -55,10 +61,29 @@ export const CampaignManagerModal: React.FC<CampaignManagerModalProps> = ({
       setIsActive(true);
       setFeaturedCategory('All');
       setDescription('Celebrate the festival of lights with handcrafted boutique luxury essentials in Rupees.');
+      setBannerImageUrl(undefined);
     }
   }, [campaignToEdit, isOpen]);
 
   if (!isOpen) return null;
+
+  const handleBannerFile = async (file: File) => {
+    if (!file.type.startsWith('image/')) return;
+    setIsCompressing(true);
+    try {
+      const dataUrl = await compressImage(file, 1000, 600, 0.82);
+      // Cloudinary when signed in (shared permanent URL), else local dataURL
+      try {
+        setBannerImageUrl(await uploadPhoto(dataUrlToBlob(dataUrl), 'campaigns', file.name));
+      } catch {
+        setBannerImageUrl(dataUrl);
+      }
+    } catch (e) {
+      console.error('Banner compress failed', e);
+    } finally {
+      setIsCompressing(false);
+    }
+  };
 
   const presets = [
     {
@@ -129,6 +154,7 @@ export const CampaignManagerModal: React.FC<CampaignManagerModalProps> = ({
       isActive,
       featuredCategory,
       description,
+      bannerImageUrl,
     });
     onClose();
   };
@@ -359,6 +385,62 @@ export const CampaignManagerModal: React.FC<CampaignManagerModalProps> = ({
                 placeholder="Briefly describe festival perks, terms, and highlights..."
                 className="w-full px-3 py-2 bg-white border border-[#E8DDD8] rounded-lg text-[#2D1217] focus:outline-none focus:ring-1 focus:ring-[#7A1C30]"
               />
+            </div>
+
+            {/* Campaign Photo (gallery upload, shown big on customer banner) */}
+            <div>
+              <label className="block text-xs font-semibold text-[#7A5B61] uppercase tracking-wider mb-1">
+                Campaign Photo (from gallery)
+              </label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={e => {
+                  const f = e.target.files?.[0];
+                  if (f) handleBannerFile(f);
+                }}
+                className="hidden"
+              />
+              {bannerImageUrl ? (
+                <div className="flex items-center gap-3">
+                  <img
+                    src={bannerImageUrl}
+                    alt="Campaign banner preview"
+                    className="w-32 h-20 object-cover rounded-lg border border-[#E8DDD8]"
+                  />
+                  <div className="flex flex-col gap-1">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="text-[11px] text-[#5B1423] font-semibold hover:underline cursor-pointer"
+                    >
+                      Change photo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBannerImageUrl(undefined)}
+                      className="text-[11px] text-rose-700 hover:underline cursor-pointer"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isCompressing}
+                  className="w-full p-4 border-2 border-dashed border-[#E8DDD8] rounded-xl bg-white text-[#7A5B61] hover:border-[#7A1C30] flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {isCompressing ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Upload className="w-5 h-5" />
+                  )}
+                  <span>{isCompressing ? 'Compressing...' : 'Upload campaign photo from gallery'}</span>
+                </button>
+              )}
             </div>
 
             <div className="flex items-center gap-2 pt-1">

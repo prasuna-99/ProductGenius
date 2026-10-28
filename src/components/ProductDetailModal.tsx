@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Star, ShoppingBag, Heart, Sparkles, ArrowRight, Check, ShieldCheck } from 'lucide-react';
+import { X, Star, ShoppingBag, Heart, Sparkles, Check, ShieldCheck } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Product } from '../types';
 import { formatPrice } from '../utils/format';
@@ -14,8 +14,8 @@ export const ProductDetailModal: React.FC = () => {
     toggleWishlist,
     associationRules,
     products,
-    setActiveMathModalRule,
     instantOrder,
+    reviews,
   } = useApp();
 
   const [quantity, setQuantity] = useState(1);
@@ -26,17 +26,29 @@ export const ProductDetailModal: React.FC = () => {
   const product = selectedProductDetail;
   const isWishlisted = wishlist.includes(product.id);
   const productMap = new Map(products.map(p => [p.id, p]));
+  // Rules are mined on canonicalIds (multi-seller dedup); resolve to listings for display.
+  const repOf = (canonicalOrId: string) =>
+    productMap.get(canonicalOrId) || products.find(p => p.canonicalId === canonicalOrId);
 
-  // Find Apriori rules where antecedent contains this product
-  const relatedRules = associationRules.filter(r => r.antecedent.includes(product.id));
+  // Find Apriori rules where antecedent contains this product (compare canonicals)
+  const myCanonical = product.canonicalId || product.id;
+  const relatedRules = associationRules.filter(r => r.antecedent.includes(myCanonical));
 
-  // Extract distinct recommendations
+  // Extract distinct recommendations (skip self)
   const relatedItems = relatedRules.flatMap(rule =>
     rule.consequent.map(conseqId => ({
       rule,
-      product: productMap.get(conseqId),
+      product: repOf(conseqId),
     }))
-  ).filter((item): item is { rule: typeof relatedRules[0]; product: Product } => Boolean(item.product));
+  ).filter((item): item is { rule: typeof relatedRules[0]; product: Product } =>
+    Boolean(item.product) && item.product!.id !== product.id
+  );
+
+  const productReviews = reviews.filter(r => r.productId === product.id);
+  const avgRating =
+    productReviews.length > 0
+      ? productReviews.reduce((s, r) => s + r.rating, 0) / productReviews.length
+      : product.rating;
 
   const handleAddToCart = () => {
     addToCart(product, quantity);
@@ -121,58 +133,6 @@ export const ProductDetailModal: React.FC = () => {
                   </span>
                 )}
               </div>
-
-              {/* Google Search Product Intelligence Adjustment */}
-              {product.googleSearchMatchedTerm && (
-                <div className="p-3.5 bg-[#FCECE9]/60 border border-[#F2CAC2] rounded-xl space-y-2 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold text-[#5B1423] flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
-                      <Sparkles className="w-3.5 h-3.5 text-[#7A1C30]" />
-                      Dataset Matched Association Term
-                    </span>
-                    <span className="bg-[#5B1423] text-white px-2 py-0.5 rounded text-[10px] font-mono">
-                      Dataset Token: {product.googleSearchMatchedTerm}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-[#5C4449]">
-                    <div>
-                      <span className="text-[#7A5B61] block text-[10px] uppercase font-semibold">Google Query Benchmark</span>
-                      <span className="font-mono text-[#2D1217] italic">"{product.googleSearchQuery || product.title}"</span>
-                    </div>
-                    {product.googleBenchmarkPrice && (
-                      <div>
-                        <span className="text-[#7A5B61] block text-[10px] uppercase font-semibold">Market Benchmark Price</span>
-                        <span className="font-mono font-bold text-[#5B1423]">
-                          {formatPrice(product.googleBenchmarkPrice)} (Saves {formatPrice(Math.max(0, product.googleBenchmarkPrice - product.price))})
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {product.googleActiveIngredients && product.googleActiveIngredients.length > 0 && (
-                    <div className="pt-1 border-t border-[#F2CAC2]/70">
-                      <span className="text-[#7A5B61] text-[10px] uppercase font-semibold block mb-1">
-                        Active Ingredients & Specs:
-                      </span>
-                      <div className="flex flex-wrap gap-1">
-                        {product.googleActiveIngredients.map((ing, i) => (
-                          <span key={i} className="bg-white border border-[#E8DDD8] px-2 py-0.5 rounded text-[10px] text-[#2D1217]">
-                            {ing}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {product.googleSearchTrends && (
-                    <div className="text-[10px] text-[#7A1C30] font-medium flex items-center gap-1 pt-0.5">
-                      <span>📈</span>
-                      <span>Google Search Trends: {product.googleSearchTrends}</span>
-                    </div>
-                  )}
-                </div>
-              )}
 
               {/* Description */}
               <p className="text-sm text-[#5C4449] leading-relaxed">
@@ -265,11 +225,11 @@ export const ProductDetailModal: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-[#5B1423]" />
                   <h3 className="font-display text-xl font-semibold text-[#2D1217]">
-                    Apriori Recommended Pairings
+                    A Little Something for You
                   </h3>
                 </div>
                 <div className="text-xs text-[#7A5B61]">
-                  Mined with Apriori algorithm from 200 checkout baskets
+                  Mined with Apriori algorithm from 300 checkout baskets
                 </div>
               </div>
 
@@ -295,29 +255,10 @@ export const ProductDetailModal: React.FC = () => {
                         <div className="text-xs font-mono font-bold text-[#5B1423] mt-0.5">
                           {formatPrice(pairedProd.price)}
                         </div>
-                        
-                        {/* Association Stats */}
-                        <div className="flex items-center gap-2 mt-1.5 text-[11px] text-[#5C4449]">
-                          <span className="font-semibold text-[#5B1423]">
-                            {(rule.confidence * 100).toFixed(0)}% Confidence
-                          </span>
-                          <span>·</span>
-                          <span>{(rule.support * 100).toFixed(0)}% Support</span>
-                          <span>·</span>
-                          <span>{rule.lift}x Lift</span>
-                        </div>
                       </div>
                     </div>
 
-                    <div className="mt-3 pt-3 border-t border-[#F5EBE6] flex items-center justify-between gap-2">
-                      <button
-                        onClick={() => setActiveMathModalRule(rule)}
-                        className="text-[11px] text-[#7A1C30] hover:underline cursor-pointer flex items-center gap-1"
-                      >
-                        Inspect Proof <ArrowRight className="w-3 h-3" />
-                      </button>
-
-                      <div className="flex items-center gap-1.5">
+                    <div className="mt-3 pt-3 border-t border-[#F5EBE6] flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => addToCart(pairedProd, 1)}
                           className="px-2.5 py-1 bg-white hover:bg-[#FAF7F2] text-[#5B1423] text-xs font-semibold rounded-md border border-[#E8DDD8] transition-colors cursor-pointer"
@@ -333,11 +274,59 @@ export const ProductDetailModal: React.FC = () => {
                         </button>
                       </div>
                     </div>
-                  </div>
                 ))}
               </div>
             </div>
           )}
+
+          {/* Customer Reviews (live average of rates) */}
+          <div className="pt-6 border-t border-[#E8DDD8]">
+            <div className="flex items-center gap-2 mb-1">
+              <Star className="w-4 h-4 fill-amber-400 text-amber-500" />
+              <h3 className="font-display text-xl font-semibold text-[#2D1217]">
+                Customer Reviews ({productReviews.length})
+              </h3>
+            </div>
+            {productReviews.length > 0 && (
+              <div className="text-xs text-[#7A5B61] mb-4">
+                Average rating <strong className="font-mono text-[#5B1423]">{avgRating.toFixed(1)}/5</strong> from verified delivered orders
+              </div>
+            )}
+            {productReviews.length === 0 ? (
+              <div className="p-6 text-center bg-white rounded-xl border border-[#E8DDD8] text-xs text-[#7A5B61]">
+                No reviews yet. Customers can review this product after delivery from My Orders.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {productReviews.map(r => (
+                  <div key={r.id} className="p-4 bg-white rounded-xl border border-[#E8DDD8] flex gap-3">
+                    {r.imageUrl && (
+                      <ImageWithFallback
+                        src={r.imageUrl}
+                        alt={`Photo by ${r.userName}`}
+                        className="w-16 h-16 rounded-lg border border-[#E8DDD8] shrink-0"
+                      />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1">
+                        {[1, 2, 3, 4, 5].map(n => (
+                          <Star
+                            key={n}
+                            className={`w-3.5 h-3.5 ${n <= r.rating ? 'fill-amber-400 text-amber-500' : 'text-[#D8C9C4]'}`}
+                          />
+                        ))}
+                        <span className="ml-1 text-[11px] font-mono font-bold text-[#5B1423]">{r.rating}/5</span>
+                      </div>
+                      <p className="text-xs text-[#2D1217] mt-1 leading-relaxed">{r.text}</p>
+                      <div className="text-[11px] text-[#7A5B61] mt-1">
+                        {r.userName} · {r.date}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
         </div>
       </div>

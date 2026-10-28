@@ -1,0 +1,211 @@
+// ProductGenius data model. Mirrors the React TypeScript types 1:1
+// (src/types/index.ts) plus server-owned fields (passwordHash, FKs, indexes).
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  customer
+  seller
+  admin
+}
+
+enum OrderStatus {
+  Pending
+  Processing
+  Shipped
+  Delivered
+  Cancelled
+}
+
+enum RequestStatus {
+  pending
+  approved
+  rejected
+}
+
+model User {
+  id           String    @id @default(cuid())
+  seqNum       Int?      @unique @default(autoincrement()) // global account number -> USR-<ROLE>-<date>-<seqNum>, PRD/REV owner prefix
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         Role      @default(customer)
+  storeName    String?
+  avatar       String?
+  joinedDate   String    @default("2026")
+  products     Product[]
+  reviews      Review[]
+  requests     CategoryRequest[] @relation("Requester")
+  createdAt    DateTime  @default(now())
+
+  @@index([role])
+}
+
+// Monotonic counters backing the ID scheme (per-seller / per-user / per-day).
+// Users take their global seqNum instead (see User.seqNum).
+model Sequence {
+  key  String @id // e.g. PRD:<sellerId> | REV:<userId> | ORD:20261007
+  last Int    @default(0)
+}
+
+model Product {
+  id               String   @id @default(cuid())
+  // listingId for money/stock (per seller), canonicalId for Apriori (shared)
+  canonicalId      String
+  title            String
+  category         String
+  categoryRef      Category? @relation(fields: [categoryId], references: [id])
+  categoryId       String?
+  price            Float
+  originalPrice    Float?
+  rating           Float    @default(5.0)
+  reviewsCount     Int      @default(0)
+  inStock          Boolean  @default(true)
+  stockCount       Int      @default(10)
+  sku              String?  @unique
+  sellerId         String
+  seller           User     @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  sellerName       String
+  description      String   @default("")
+  features         String[] @default([])
+  imageUrl         String   @default("")
+  tags             String[] @default([])
+  isFeatured       Boolean  @default(false)
+  reviews          Review[]
+  createdAt        DateTime @default(now())
+
+  @@index([sellerId])
+  @@index([canonicalId])
+  @@index([category])
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  customerId      String
+  customerName    String
+  customerEmail   String
+  subtotal        Float
+  shipping        Float       @default(0)
+  discount        Float       @default(0)
+  total           Float
+  status          OrderStatus @default(Processing)
+  // Per-seller fulfillment: { sellerId: status }. Global Delivered only when ALL delivered.
+  sellerStatus    Json?
+  date            String
+  shippingAddress Json
+  trackingNumber  String
+  items           OrderItem[]
+  createdAt       DateTime    @default(now())
+
+  @@index([customerId])
+  @@index([status])
+}
+
+model OrderItem {
+  id          String   @id @default(cuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String
+  canonicalId String?
+  sellerId    String?
+  title       String
+  price       Float
+  quantity    Int
+  imageUrl    String   @default("")
+
+  @@index([orderId])
+  @@index([sellerId])
+  @@index([canonicalId])
+}
+
+model Transaction {
+  id      String   @id // T0001... or T-ORD-xxx
+  orderId String?  @unique
+  date    String
+  itemIds String[] // canonicalIds (deduped across sellers)
+
+  @@index([date])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userName  String
+  rating    Int
+  text      String
+  imageUrl  String?
+  date      String
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+  @@index([userId])
+}
+
+model Campaign {
+  id               String   @id @default(cuid())
+  title            String
+  type             String   @default("festival")
+  tagline          String   @default("")
+  discountCode     String   @unique
+  discountPercent  Float
+  themeColor       String   @default("burgundy")
+  badgeText        String   @default("")
+  bannerImageUrl   String?
+  startDate        String
+  endDate          String
+  isActive         Boolean  @default(true)
+  featuredCategory String   @default("All")
+  description      String   @default("")
+  createdAt        DateTime @default(now())
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  slug        String    @unique
+  description String    @default("")
+  createdBy   String?
+  isActive    Boolean   @default(true)
+  products    Product[]
+}
+
+model CategoryRequest {
+  id          String        @id @default(cuid())
+  name        String
+  slug        String
+  description String        @default("")
+  requestedBy String
+  requester   User          @relation("Requester", fields: [requestedBy], references: [id], onDelete: Cascade)
+  status      RequestStatus @default(pending)
+  adminNote   String        @default("")
+  decidedBy   String?
+  decidedAt   DateTime?
+  categoryId  String?       @unique
+  createdAt   DateTime      @default(now())
+
+  @@index([requestedBy])
+  @@index([status])
+}
+
+// Deletion tombstones: when a row is deleted through the API, its
+// (table, recordId) is recorded here in the SAME transaction, so other
+// browsers learn the deletion at sync time and never resurrect the row via
+// /sync/push. Orders/Transactions are never tombstoned (history survives).
+model DeletedRecord {
+  table     String
+  recordId  String
+  deletedBy String?
+  deletedAt DateTime @default(now())
+
+  @@id([table, recordId])
+  @@index([deletedAt])
+}

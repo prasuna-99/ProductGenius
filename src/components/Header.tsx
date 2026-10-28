@@ -12,6 +12,7 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { getToken } from '../utils/api';
 import { Role } from '../types';
 
 export const Header: React.FC = () => {
@@ -19,6 +20,8 @@ export const Header: React.FC = () => {
     currentRole,
     currentUser,
     switchRole,
+    switchAccount,
+    allUsers,
     cartCount,
     setIsCartOpen,
     setIsAuthModalOpen,
@@ -26,10 +29,34 @@ export const Header: React.FC = () => {
     activeCustomerTab,
     setActiveCustomerTab,
     logout,
+    backendOnline,
+    syncNow,
+    lastSync,
   } = useApp();
 
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+
+  // Sibling accounts (manual switch, sticky) + role entry.
+  // Signed out? A role entry opens the login form instead of just changing
+  // the view — sync needs a JWT, and a view-switch alone never creates one.
+  const enterRole = (role: Role) => {
+    if (getToken()) {
+      switchRole(role);
+    } else {
+      setIsAuthModalOpen(true);
+    }
+  };
+
+  // Other accounts with the same role (e.g. Rosy + Atelier both sellers).
+  // Switching here is manual and sticky — it stays until changed again.
+  // Deduped by id: repeated sign-ins must never render the same key twice.
+  const siblingAccounts = allUsers.filter(
+    (u, i, arr) =>
+      u.role === currentUser.role &&
+      u.id !== currentUser.id &&
+      arr.findIndex(x => x.id === u.id) === i
+  );
 
   const roleLabels: Record<Role, { title: string; badge: string; icon: typeof Store }> = {
     customer: { title: 'Customer', badge: 'Shopper', icon: ShoppingBag },
@@ -46,6 +73,23 @@ export const Header: React.FC = () => {
           <span>Apriori Association Engine active · Mining basket correlations in real-time</span>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => syncNow()}
+            title={
+              backendOnline
+                ? 'Online: shop reads/writes Neon Postgres + Cloudinary. Click to re-sync.'
+                : 'Local mode: signed out or backend unreachable — data stays in this browser. Sign in to sync.'
+            }
+            className="flex items-center gap-1.5 cursor-pointer"
+          >
+            <span
+              className={`inline-block w-1.5 h-1.5 rounded-full ${
+                backendOnline ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'
+              }`}
+            />
+            <span className="text-[#F2CAC2]">{backendOnline ? 'Synced' : 'Local'}</span>
+          </button>
+          <span className="text-[#D8B7BE]">|</span>
           <span className="text-[#F2CAC2]">Current Mode:</span>
           <span className="font-semibold text-white uppercase tracking-wider">{currentRole}</span>
           <span className="text-[#D8B7BE]">|</span>
@@ -165,7 +209,7 @@ export const Header: React.FC = () => {
                   </div>
 
                   <button
-                    onClick={() => switchRole('customer')}
+                    onClick={() => enterRole('customer')}
                     className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-[#FAF7F2] transition-colors cursor-pointer ${
                       currentRole === 'customer' ? 'bg-[#FCECE9] text-[#5B1423] font-semibold' : 'text-[#2D1217]'
                     }`}
@@ -181,7 +225,7 @@ export const Header: React.FC = () => {
                   </button>
 
                   <button
-                    onClick={() => switchRole('seller')}
+                    onClick={() => enterRole('seller')}
                     className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-[#FAF7F2] transition-colors cursor-pointer ${
                       currentRole === 'seller' ? 'bg-[#FCECE9] text-[#5B1423] font-semibold' : 'text-[#2D1217]'
                     }`}
@@ -197,7 +241,7 @@ export const Header: React.FC = () => {
                   </button>
 
                   <button
-                    onClick={() => switchRole('admin')}
+                    onClick={() => enterRole('admin')}
                     className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-[#FAF7F2] transition-colors cursor-pointer ${
                       currentRole === 'admin' ? 'bg-[#FCECE9] text-[#5B1423] font-semibold' : 'text-[#2D1217]'
                     }`}
@@ -252,9 +296,39 @@ export const Header: React.FC = () => {
                   <div className="px-3 py-2 border-b border-[#F5EBE6]">
                     <div className="font-medium text-xs text-[#2D1217]">{currentUser.name}</div>
                     <div className="text-[11px] text-[#7A5B61] truncate">{currentUser.email}</div>
-                    <div className="mt-1 inline-block text-[10px] text-[#5B1423] bg-[#FCECE9] px-2 py-0.5 rounded font-medium capitalize">
-                      {currentUser.role}
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <span className="inline-block text-[10px] text-[#5B1423] bg-[#FCECE9] px-2 py-0.5 rounded font-medium capitalize">
+                        {currentUser.role}
+                      </span>
+                      <span
+                        title={
+                          backendOnline
+                            ? 'JWT active — reads/writes hit Neon + Cloudinary'
+                            : 'Local account — no JWT, everything stays in this browser'
+                        }
+                        className={`inline-block text-[10px] px-2 py-0.5 rounded font-bold ${
+                          backendOnline ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                        }`}
+                      >
+                        {backendOnline ? '● Synced' : '● Local'}
+                      </span>
                     </div>
+                    {lastSync && (
+                      <div className="mt-1 text-[10px] text-[#7A5B61] font-mono">
+                        Last sync {lastSync.at}
+                        {lastSync.pushed &&
+                          ' · pushed ' +
+                            Object.entries(lastSync.pushed)
+                              .filter(([, n]) => (n as number) > 0)
+                              .map(([k, n]) => `${n} ${k}`)
+                              .join(', ')}
+                        {lastSync.error && ` · ${lastSync.error}`}
+                        {!lastSync.pushed && !lastSync.error && lastSync.tombstonesApplied
+                          ? ` · removed ${lastSync.tombstonesApplied} deleted`
+                          : null}
+                        {!lastSync.pushed && !lastSync.error && !lastSync.tombstonesApplied && ' · up to date'}
+                      </div>
+                    )}
                   </div>
 
                   <button
@@ -264,6 +338,24 @@ export const Header: React.FC = () => {
                     <UserIcon className="w-3.5 h-3.5 text-[#7A5B61]" />
                     <span>Change Account / Sign In</span>
                   </button>
+
+                  {siblingAccounts.length > 0 && (
+                    <div className="border-t border-[#F5EBE6] mt-1 pt-1">
+                      <div className="px-3 py-1 text-[10px] text-[#7A5B61] uppercase tracking-wider font-semibold">
+                        Switch {currentUser.role} account (stays until changed)
+                      </div>
+                      {siblingAccounts.map(acc => (
+                        <button
+                          key={acc.id}
+                          onClick={() => switchAccount(acc.id)}
+                          className="w-full text-left px-3 py-2 text-xs text-[#2D1217] hover:bg-[#FAF7F2] transition-colors cursor-pointer"
+                        >
+                          <div className="font-medium">{acc.storeName || acc.name}</div>
+                          <div className="text-[10px] text-[#7A5B61] truncate">{acc.email}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
 
                   <button
                     onClick={logout}
